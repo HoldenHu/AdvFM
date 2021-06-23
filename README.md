@@ -1,8 +1,12 @@
----
-noteId: "f416ff30d35911eba072219f0236db2b"
-tags: []
-
----
 
 # AdvFM
 Adversarial Deep Factorization Machine
+
+## data format
+**ratings**
+---
+uid: 0
+iid: 1
+label: 1
+ts: 1678980922
+---
