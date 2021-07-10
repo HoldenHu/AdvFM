@@ -1,3 +1,8 @@
+# Author: Cao Ymg
+# Date: 10 Jul, 2021
+# Description: train, eval
+# -*- coding: utf-8 -*-
+
 import time
 from torch import nn
 from torch import optim
