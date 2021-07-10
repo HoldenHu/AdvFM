@@ -6,7 +6,6 @@
 import os
 import torch
 from torch import nn
-from model import FM
 
 from model.BaseModel import BaseModel
 

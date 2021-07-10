@@ -6,7 +6,7 @@
 import os
 import torch
 from torch import nn
-from model import FM
+
 
 from model.BaseModel import BaseModel
 
@@ -15,7 +15,7 @@ class Config(object):
     """配置参数"""
 
     def __init__(self, dataset):
-        self.model_name = 'FM'
+        self.model_name = 'DeepFM'
         dir = os.path.join('Data')
         data_dir = os.path.join(dir, dataset)
         self.rating_path = os.path.join(data_dir, 'rating.txt')
