@@ -1,3 +1,8 @@
+# Author: Cao Ymg
+# Date: 10 Jul, 2021
+# Description: Get Bert Embedding
+# -*- coding: utf-8 -*-
+
 import torch
 from transformers import BertModel, BertTokenizer
 
