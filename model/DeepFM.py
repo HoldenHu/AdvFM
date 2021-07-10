@@ -1,6 +1,6 @@
 # Author: Cao Ymg
 # Date: 8 Jul, 2021
-# Description: The FM model
+# Description: The DeepFM model
 # -*- coding: utf-8 -*-
 
 import os
