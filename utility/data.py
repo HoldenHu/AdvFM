@@ -1,3 +1,9 @@
+# Author: Cao Ymg
+# Date: 10 Jul, 2021
+# Description: Data utility
+# -*- coding: utf-8 -*-
+
+
 from logging import raiseExceptions
 from spacy.util import raise_error
 from torch.utils.data import DataLoader, Dataset, TensorDataset
