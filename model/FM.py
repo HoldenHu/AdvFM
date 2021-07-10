@@ -39,7 +39,7 @@ class Model(BaseModel):
         :param num_fea_size: 数字特征  也就是连续特征
         :param emb_size: embed_dim
         '''
-        super(FM, self).__init__()
+        super(Model, self).__init__()
         self.__alias__ = "factorization machine"
         self.cate_fea_size = len(cate_fea_uniques)
         self.num_fea_size = num_fea_size
