@@ -82,7 +82,7 @@ class DataSplitter():
         self.user_pool = set(self.user_side["user_id"].unique())
         self.item_pool = set(self.item_side["item_id"].unique())
 
-        if osp.exists(config.train_data_pth):  # 使用缓存数据
+        if osp.exists(config.train_data_pth):
             print("Using Cached file")
             self.train_data = pickle.load(open(config.train_data_pth, "rb"))
             self.test_data = pickle.load(open(config.test_data_pth, "rb"))
@@ -92,7 +92,7 @@ class DataSplitter():
             self.train_data = pd.DataFrame()
             self.test_data = pd.DataFrame()
             for i in self.user_history.keys():
-                print(i)
+                print("Please wait, spliting data takes some time")
                 if len(self.user_history[i]) > 1:
                     test_flg = 0
                     for j in self.user_history[i]:
