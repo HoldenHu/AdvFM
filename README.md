@@ -3,34 +3,27 @@
 Adversarial Deep Factorization Machine
 
 #### Data format
-##### **- ratings**
-uid: 0
+##### *ratings.txt*
 
-iid: 1
+| user_id | item_id | label | timestamp  |
+| ------- | ------- | ----- | ---------- |
+| 0       | 1       | 1     | 1678980922 |
 
-label: 1
+##### *user_history.npy*
 
-ts: 1678980922
+user_id: [ item_id1,item_id2, ... ]
 
-##### **- user_history**
+##### *user_side.csv*
 
-uid: [iid]
+| user_id | sparse_feature | dense_feature |
+| ------- | -------------- | ------------- |
+| 0       | [2]            | 15            |
 
-##### - user_side
+##### *item_side.csv*
 
-uid: 0
-
-sparse_fea: [2]
-
-dense_fea: 20
-
-##### - item_side
-
-uid: 0
-
-sparse_fea: [2]
-
-dense_fea: 20
+| item_id | sparse_feature | dense_feature |
+| ------- | -------------- | ------------- |
+| 0       | [2]            | 15            |
 
 #### Run
 
