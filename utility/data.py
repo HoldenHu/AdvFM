@@ -42,7 +42,7 @@ class DataSplitter():
                 int: the training batch size, used for building train data loader
         '''
 
-        ## load the data from files through the path defined in config
+        # load the data from files through the path defined in config
         self.user_side = pd.read_csv(config.user_side_path)
         self.item_side = pd.read_csv(config.item_side_path)
         self.user_history = np.load(config.user_history_path, allow_pickle=True).item()
@@ -88,7 +88,7 @@ class DataSplitter():
             self.test_data = pickle.load(open(config.test_data_pth, "rb"))
         else:
             print("Constructing train/test data")
-            ## split the data into train, test; by using the spilit strategy
+            # split the data into train, test; by using the split strategy
             self.train_data = pd.DataFrame()
             self.test_data = pd.DataFrame()
             for i in self.user_history.keys():
@@ -125,7 +125,7 @@ class DataSplitter():
             self.test_data.columns = ["label"] + self.user_sparse_features + self.item_sparse_features + self.user_dense_features + self.item_dense_features
             self.train_data.columns = ["label"] + self.user_sparse_features + self.item_sparse_features + self.user_dense_features + self.item_dense_features
 
-            ## add negative sample into the train/test dataset by the using negative_strategy
+            # add negative sample into the train/test dataset by the using negative_strategy
 
 
 
@@ -155,7 +155,7 @@ class DataSplitter():
                                           torch.FloatTensor(self.test_data[self.dense_features].values),
                                           torch.FloatTensor(self.test_data['label'].values))
 
-        ## build data loader, while train_loader need be shuffled
+        # build data loader, while train_loader need be shuffled
         self.train_loader = None
         self.test_loader = None
 
