@@ -1,4 +1,8 @@
-# coding: UTF-8
+# Author: Cao Ymg
+# Date: 11 Jul, 2021
+# Description: Process
+# -*- coding: utf-8 -*-
+
 import torch
 import numpy as np
 from importlib import import_module
