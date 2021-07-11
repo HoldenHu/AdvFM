@@ -6,7 +6,7 @@
 import torch
 from transformers import BertModel, BertTokenizer
 
-def get_bert_embedding(tokens_ids, model, tokenizer):
+def get_bert_embedding(tokens_ids):
     model = BertModel.from_pretrained("bert-base-multilingual-cased")
     tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
     tokens_ids = tokens_ids.replace("[", "")
