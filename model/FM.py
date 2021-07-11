@@ -14,8 +14,8 @@ class Config(object):
     """配置参数"""
 
     def __init__(self, dataset):
-        self.model_name = 'FM'
-        dir = os.path.join('Data')
+        self.model = 'FM'
+        dir = os.path.join('data')
         data_dir = os.path.join(dir, dataset)
         self.rating_path = os.path.join(data_dir, 'rating.txt')
         self.user_history_path = os.path.join(data_dir, 'user_hist.npy')
@@ -29,7 +29,8 @@ class Config(object):
         self.learning_rate = 0.005
         self.weight_decay = 0.001
         self.Epochs = 80
-
+        self.train_data_pth = os.path.join(data_dir, 'tmp_train.pkl')
+        self.test_data_pth = os.path.join(data_dir, 'tmp_test.pkl')
 
 class Model(BaseModel):
     def __init__(self, cate_fea_uniques, num_fea_size=0, emb_size=8, ):
