@@ -3,14 +3,11 @@
 # Description: Data utility
 # -*- coding: utf-8 -*-
 import pickle
-from logging import raiseExceptions
-from spacy.util import raise_error
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 import time
 import torch
 import numpy as np
 import os.path as osp
-from importlib import import_module
 import pandas as pd
 from tqdm import tqdm
 from utility.bert_embedding import get_bert_embedding
@@ -79,7 +76,7 @@ class DataSplitter():
             self.item_side[feat] = (self.item_side[feat] - mean) / (std + 1e-12)
 
         # get text embeddings with bert
-        self.item_side[self.item_text_features] = self.item_side.apply(lambda row: get_bert_embedding(row[self.item_text_features[0]]),axis=1)
+        # self.item_side[self.item_text_features] = self.item_side.apply(lambda row: get_bert_embedding(row[self.item_text_features[0]]),axis=1)
 
         # need to make sure that it is the id set start from 0, without any interval
         self.user_pool = set(self.user_side["user_id"].unique())
@@ -95,6 +92,7 @@ class DataSplitter():
             self.train_data = pd.DataFrame()
             self.test_data = pd.DataFrame()
             for i in self.user_history.keys():
+                print(i)
                 if len(self.user_history[i]) > 1:
                     test_flg = 0
                     for j in self.user_history[i]:
@@ -139,16 +137,14 @@ class DataSplitter():
             pickle.dump(self.train_data, f2)
             print("Cached train/test data files")
 
-        data = pd.concat([self.train_data, self.test_data])
+        self.data = pd.concat([self.train_data, self.test_data])
 
         # tmp line (not sure how to deal with multi-hot)
-        data = data.drop(['s_category'], axis=1)
+        self.data = self.data.drop(['s_category'], axis=1)
 
-        self.dense_features = [f for f in data.columns.tolist() if f[0] == "d"]
-        self.sparse_features = [f for f in data.columns.tolist() if f[0] == "s"]
+        self.dense_features = [f for f in self.data.columns.tolist() if f[0] == "d"]
+        self.sparse_features = [f for f in self.data.columns.tolist() if f[0] == "s"]
 
-        # tmp line (not sure how to deal with text_features)
-        text_features = [f for f in self.item_side.columns.tolist() if f[0] == "t"]
 
         # get train set and test set
         self.train_dataset = TensorDataset(torch.LongTensor(self.train_data[self.sparse_features].values),
