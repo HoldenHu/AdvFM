@@ -163,7 +163,7 @@ class DataSplitter():
         self.train_loader = None
         self.test_loader = None
 
-    def _make_dataloader(self, type):
+    def _make_dataloader(self, type, config):
         if type == 'train':
             train_loader = DataLoader(dataset=self.train_dataset, batch_size=config.batch_size, shuffle=True)
             return train_loader
