@@ -15,7 +15,7 @@ class Config(object):
     """配置参数"""
 
     def __init__(self, dataset):
-        self.model_name = 'DeepFM'
+        self.model = 'DeepFM'
         dir = os.path.join('Data')
         data_dir = os.path.join(dir, dataset)
         self.rating_path = os.path.join(data_dir, 'rating.txt')
@@ -30,6 +30,8 @@ class Config(object):
         self.learning_rate = 0.005
         self.weight_decay = 0.001
         self.Epochs = 80
+        self.train_data_pth = os.path.join(data_dir, 'tmp_train.pkl')
+        self.test_data_pth = os.path.join(data_dir, 'tmp_test.pkl')
 
 
 class Model(BaseModel):
