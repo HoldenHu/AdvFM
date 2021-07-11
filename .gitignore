@@ -7,3 +7,8 @@
 *.iml
 out
 gen
+
+# dir
+/data
+model/__pycache__/
+utility/__pycache__/
