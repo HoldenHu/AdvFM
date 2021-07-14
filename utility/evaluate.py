@@ -37,10 +37,10 @@ def evaluate_model(model, test_loader):
     with torch.no_grad():
         valid_labels, valid_preds = [], []
         for step, x in tqdm(enumerate(test_loader)):
-            cat_fea, num_fea, label = x[0], x[1], x[2]
+            one_hot_fea, multi_hot_fea, num_fea, label = x[0], x[1], x[2], x[3]
             if torch.cuda.is_available():
-                cat_fea, num_fea, label = cat_fea.cuda(), num_fea.cuda(), label.cuda()
-            logits = model(cat_fea, num_fea)
+                one_hot_fea, multi_hot_fea, num_fea, label = one_hot_fea.cuda(), multi_hot_fea.cuda(), num_fea.cuda(), label.cuda()
+            logits = model(one_hot_fea, multi_hot_fea, num_fea)
             logits = logits.view(-1).data.cpu().numpy().tolist()
             valid_preds.extend(logits)
             valid_labels.extend(label.cpu().numpy().tolist())
@@ -68,11 +68,11 @@ def train_model(config, train_loader, test_loader, model):
         train_loss_sum = 0.0
         start_time = time.time()
         for step, x in enumerate(train_loader):
-            cat_fea, num_fea, label = x[0], x[1], x[2]
+            one_hot_fea, multi_hot_fea, num_fea, label = x[0], x[1], x[2], x[3]
             if torch.cuda.is_available():
-                cat_fea, num_fea, label = cat_fea.cuda(), num_fea.cuda(), label.cuda()
-            pred = model(cat_fea, num_fea)
-            # print(pred.size())  # torch.Size([2, 1])
+                one_hot_fea, multi_hot_fea, num_fea, label = one_hot_fea.cuda(), multi_hot_fea.cuda(), num_fea.cuda(), label.cuda()
+            pred = model(one_hot_fea, multi_hot_fea, num_fea)
+            # print(pred.size())  # torch.Size([3, 1])
             pred = pred.view(-1)
             loss = loss_fct(pred, label)
             optimizer.zero_grad()

@@ -27,10 +27,14 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(1)
 
     data_split = DataSplitter(config, dataset)
+
     train_loader = data_split._make_dataloader("train", config)
     test_loader = data_split._make_dataloader("test", config)
-    sparse_fea_unique = data_split.get_cat_fea_unique
+
+    sparse_fea_unique = data_split.unique_one_hot_cat
     n_dense_fea = data_split.n_densefeature
-    model = cur_module.Model(sparse_fea_unique, n_dense_fea).to(config.device)
+    multi_hot_embedsize = data_split.unique_multi_hot_cat(config)
+
+    model = cur_module.Model(sparse_fea_unique, multi_hot_embedsize, n_dense_fea).to(config.device)
     train_model(config, train_loader, test_loader, model)
 
