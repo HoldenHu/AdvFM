@@ -19,3 +19,13 @@ def get_bert_embedding(tokens_ids):
     last_hidden_state, pooler_output = output[0], output[1]
     pooler_output = torch.sum(pooler_output, 0, keepdim=True)
     return pooler_output
+
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+sentences = ['This framework generates embeddings for each input sentence',
+    'Sentences are passed as a list of string.',
+    'The quick brown fox jumps over the lazy dog.']
+sentence_embeddings = model.encode(sentences)
+sentence_embeddings = torch.from_numpy(sentence_embeddings)
+print(type(sentence_embeddings))
+print(sentence_embeddings[1].shape)
