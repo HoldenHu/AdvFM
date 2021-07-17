@@ -20,12 +20,24 @@ def get_bert_embedding(tokens_ids):
     pooler_output = torch.sum(pooler_output, 0, keepdim=True)
     return pooler_output
 
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, util
+
+# the best quality.
+# model = SentenceTransformer('paraphrase-mpnet-base-v2')
+# a quick model with high quality.
 model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
-sentences = ['This framework generates embeddings for each input sentence',
-    'Sentences are passed as a list of string.',
-    'The quick brown fox jumps over the lazy dog.']
+sentences = ['Kolya (1996)Kolya (1996)Kolya (1996)a nun, while comforting a convicted killer on death row, empathizes with both the killer and his victim',
+    'Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb (1963)Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb (1963)Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb (1963)a simple italian postman learns to love poetry while delivering mail to a famous poet, and then uses this to woo local beauty beatrice.postman,poetry,island,poet,bicycle',
+    'Bachelor Louka ends up fathering a child with his girlfriend – perhaps a replacement for lost Kolya – and regains his position as a virtuoso with the philharmonic orchestra.']
 sentence_embeddings = model.encode(sentences)
 sentence_embeddings = torch.from_numpy(sentence_embeddings)
 print(type(sentence_embeddings))
-print(sentence_embeddings[1].shape)
+print(sentence_embeddings[2].shape)
+
+#Compute cosine similarities
+cos_scores = util.cos_sim(sentence_embeddings[0], sentence_embeddings[1])
+print(cos_scores)
+
+#Compute cosine similarities
+cos_scores = util.cos_sim(sentence_embeddings[0], sentence_embeddings[2])
+print(cos_scores)
