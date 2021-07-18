@@ -31,73 +31,98 @@ class Config(object):
         self.Epochs = 80
         self.train_data_pth = os.path.join(data_dir, 'tmp_train.pkl')
         self.test_data_pth = os.path.join(data_dir, 'tmp_test.pkl')
+        self.train_dataloader_pth = os.path.join(data_dir, 'train_loader.pkl')
+        self.test_dataloader_pth = os.path.join(data_dir, 'test_loader.pkl')
         self.multi_cat_size = os.path.join(data_dir, 'multi_cat.npy')
 
 
 class Model(BaseModel):
-    def __init__(self, cate_fea_uniques, multi_hot_embedsize, num_fea_size, emb_size=8, ):
-        '''
-        :param cate_fea_uniques:
-        :param num_fea_size: 数字特征  也就是连续特征
-        :param emb_size: embed_dim
-        '''
+    def __init__(self, one_hot_cate, multi_hot_cate, dense_cate, emb_size=160, ):
+        """
+        @params
+            one_hot_cate: num of fields in each one hot feature
+            multi_hot_cate: num of fields in each multi hot feature
+            dense_cate: num of continuous features
+            emb_size: embed size of degree2 interactions
+        """
         super(Model, self).__init__()
         self.__alias__ = "factorization machine"
-        self.cate_fea_size = len(cate_fea_uniques)
-        self.num_fea_size = num_fea_size
+        self.cate_fea_size = len(one_hot_cate)
+        self.num_fea_size = dense_cate
 
-        # dense特征一阶表示
+        # 1st order - single variable
+        # dense
         if self.num_fea_size != 0:
             self.fm_1st_order_dense = nn.Linear(self.num_fea_size, 1)
-
-        # sparse特征一阶表示one-hot
+        # text
+        self.fm_1st_order_text = nn.Linear(384, 1)
+        # one-hot
         self.fm_1st_order_sparse_emb = nn.ModuleList([
-            nn.Embedding(voc_size, 1) for voc_size in cate_fea_uniques
+            nn.Embedding(voc_size, 1) for voc_size in one_hot_cate
         ])
 
-        # sparse特征二阶表示
-        self.order2_sparse_one_emb = nn.ModuleList([
-            nn.Embedding(voc_size, emb_size) for voc_size in cate_fea_uniques
+        # 2nd order - variable interactions
+        # dense
+        if self.num_fea_size != 0:
+            self.fm_2nd_order_dense = nn.Linear(self.num_fea_size, emb_size)
+        # text
+        self.fm_2nd_order_text = nn.Linear(384, emb_size)
+        # one hot
+        self.fm_2nd_order_onehot = nn.ModuleList([
+            nn.Embedding(voc_size, emb_size) for voc_size in one_hot_cate
         ])
-
-        self.order2_sparse_multi_emb = nn.ModuleList([
-            nn.Linear(1, emb_size) for i in range(len(multi_hot_embedsize))
+        # multi hot
+        self.fm_2nd_multihot = nn.ModuleList([
+            nn.Linear(1, emb_size) for i in range(len(multi_hot_cate))
         ])
 
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, X_sparse_one, X_sparse_multi, X_dense):
+    def forward(self, X_sparse_one, X_sparse_multi, X_dense, X_text):
         """
-        X_sparse: sparse_feature [batch_size, sparse_feature_num]
-        X_dense: dense_feature  [batch_size, dense_feature_num]
+        X_sparse_one: one hot sparse_features [batch_size, feature_num]
+        X_sparse_multi: multi hot dense_features  [batch_size, feature_num]
+        X_dense: continuous features [batch_size, feature_num]
+        X_text: text features [batch_size, 384]
         """
-        """FM部分"""
-        # 一阶  包含sparse_feature和dense_feature的一阶
-        fm_1st_sparse_one = [emb(X_sparse_one[:, i].unsqueeze(1)).view(-1, 1)
-                             for i, emb in enumerate(self.fm_1st_order_sparse_emb)]  # sparse特征嵌入成一维度
 
-        fm_1st_sparse_one = torch.cat(fm_1st_sparse_one, dim=1)  # torch.Size([2, 26])
-        fm_1st_sparse_one = torch.sum(fm_1st_sparse_one, 1, keepdim=True)  # [bs, 1] 将sparse_feature通过全连接并相加整成一维度
+        # 1st order - single variable
+        fm_1st_sparse_one = [emb(X_sparse_one[:, i].unsqueeze(1)).view(-1, 1) for i, emb in enumerate(self.fm_1st_order_sparse_emb)]
+        fm_1st_sparse_one = torch.cat(fm_1st_sparse_one, dim=1)
+        fm_1st_sparse_one = torch.sum(fm_1st_sparse_one, 1, keepdim=True)  # [bs, 1]
         fm_1st_sparse = fm_1st_sparse_one
 
         if X_dense is not None:
-            fm_1st_dense_res = self.fm_1st_order_dense(X_dense)  # 将dense_feature压到一维度
+            fm_1st_dense_res = self.fm_1st_order_dense(X_dense)
             fm_1st_part = fm_1st_sparse + fm_1st_dense_res + X_sparse_multi
         else:
             fm_1st_part = fm_1st_sparse  # [bs, 1]
 
-        # 二阶
-        fm_2nd_order_res = [emb(X_sparse_one[:, i].unsqueeze(1)) for i, emb in enumerate(self.order2_sparse_one_emb)]
-        fm_2nd_concat_one = torch.cat(fm_2nd_order_res, dim=1)  # batch_size, num_sparse_one, emb_size
-        fm_2nd_order_res = [emb(X_sparse_multi[:, i].unsqueeze(1)) for i, emb in enumerate(self.order2_sparse_multi_emb)]
-        fm_2nd_concat_multi = torch.cat(fm_2nd_order_res, dim=1).unsqueeze(1)  # batch size, num_sparse_multi , embed size
-        fm_2nd_concat = torch.cat((fm_2nd_concat_one, fm_2nd_concat_multi), dim=1)  # batch size, num_sparse , embed size
+        if X_text is not None:
+            fm_1st_dense_res = self.fm_1st_order_text(X_text)
+            fm_1st_part = fm_1st_part + fm_1st_dense_res
+        else:
+            fm_1st_part = fm_1st_sparse  # [bs, 1]
 
-        # 先求和再平方
+        # 2nd order - variable interactions
+        # dense
+        fm_2nd_concat_dense = self.fm_2nd_order_dense(X_dense).unsqueeze(1)
+        # one hot
+        fm_2nd_order_res = [emb(X_sparse_one[:, i].unsqueeze(1)) for i, emb in enumerate(self.fm_2nd_order_onehot)]
+        fm_2nd_concat_one = torch.cat(fm_2nd_order_res, dim=1)  # batch_size, num_sparse_one, emb_size
+        # multi hot
+        fm_2nd_order_res = [emb(X_sparse_multi[:, i].unsqueeze(1)) for i, emb in enumerate(self.fm_2nd_multihot)]
+        fm_2nd_concat_multi = torch.cat(fm_2nd_order_res, dim=1).unsqueeze(1)   # batch size, num_sparse_multi, embed size
+        # text
+        fm_2nd_concat_text = self.fm_2nd_order_text(X_text).unsqueeze(1)
+        # concat
+        fm_2nd_concat = torch.cat((fm_2nd_concat_dense, fm_2nd_concat_one, fm_2nd_concat_multi, fm_2nd_concat_text), dim=1)       # batch size, num_sparse, embed size
+
+        # SUM & SQUARE
         sum_embed = torch.sum(fm_2nd_concat, 1)  # batch_size, emb_size
         square_sum_embed = sum_embed * sum_embed  # batch_size, emb_size
 
-        # 先平方再求和
+        # SQUARE & SUM
         square_embed = fm_2nd_concat * fm_2nd_concat  # batch_size, sparse_feature_num, emb_size]
         sum_square_embed = torch.sum(square_embed, 1)  # batch_size, emb_size
 

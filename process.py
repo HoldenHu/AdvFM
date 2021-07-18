@@ -11,8 +11,8 @@ from utility.data import DataSplitter
 from utility.evaluate import train_model
 
 parser = argparse.ArgumentParser(description='Chinese Text Classification')
-parser.add_argument('--model', type=str, required=True, default='FM', help='FM,DeepFM')
-parser.add_argument("--dataset", type=str, required=True, default='ml_100k', help="ml_100k,yelp,ml_10m,pinterest")
+parser.add_argument('--model', type=str, required=False, default='FM', help='FM,DeepFM')
+parser.add_argument("--dataset", type=str, required=False, default='ml_100k', help="ml_100k,yelp,ml_10m,pinterest")
 args = parser.parse_args()
 
 if __name__ == '__main__':

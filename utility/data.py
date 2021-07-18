@@ -13,8 +13,9 @@ import os.path as osp
 import pandas as pd
 from tqdm import tqdm
 from functools import reduce
-from utility.bert_embedding import get_bert_embedding
+from utility.bert_embedding import get_sbert_embedding
 from utility.map_label import map_column, dataset_label
+from sentence_transformers import SentenceTransformer
 
 
 class DataSplitter():
@@ -79,7 +80,7 @@ class DataSplitter():
             self.item_side[feat] = (self.item_side[feat] - mean) / (std + 1e-12)
 
         # get text embeddings with bert
-        # self.item_side[self.item_text_features] = self.item_side.apply(lambda row: get_bert_embedding(row[self.item_text_features[0]]),axis=1)
+        # self.item_side[self.item_text_features] = self.item_side.apply(lambda row: get_sbert_embedding(row[self.item_text_features[0]]),axis=1)
 
         # need to make sure that it is the id set start from 0, without any interval
         self.user_pool = set(self.user_side["user_id"].unique())
@@ -100,25 +101,18 @@ class DataSplitter():
                     test_flg = 0
                     for j in self.user_history[i]:
                         label_dict = {"label": self.rating.loc[
-                            self.rating[(self.rating.user_id == i) & (self.rating.item_id == j)].index.tolist()[0]][
-                            "label"]}
+                            self.rating[(self.rating.user_id == i) & (self.rating.item_id == j)].index.tolist()[0]]["label"]}
                         label_df = pd.DataFrame(label_dict, index=[0])
                         if test_flg == 0:
                             test_flg = 1
                             try:
                                 test_data_tmp = pd.concat(
-                                    [label_df.loc[0], self.user_side.loc[
-                                        self.user_side[self.user_side["user_id"] == i].index.tolist()[0]][
-                                        self.user_sparse_features],
-                                     self.item_side.loc[
-                                         self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][
-                                         self.item_sparse_features],
-                                     self.user_side.loc[
-                                         self.user_side[self.user_side["user_id"] == i].index.tolist()[0]][
-                                         self.user_dense_features],
-                                     self.item_side.loc[
-                                         self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][
-                                         self.item_dense_features]], axis=0, ignore_index=True)
+                                    [label_df.loc[0],
+                                     self.user_side.loc[self.user_side[self.user_side["user_id"] == i].index.tolist()[0]][self.user_sparse_features],
+                                     self.item_side.loc[self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][self.item_sparse_features],
+                                     self.user_side.loc[self.user_side[self.user_side["user_id"] == i].index.tolist()[0]][self.user_dense_features],
+                                     self.item_side.loc[self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][self.item_dense_features],
+                                     self.item_side.loc[self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][self.item_text_features]], axis=0, ignore_index=True)
                                 self.test_data = self.test_data.append(test_data_tmp, ignore_index=True)
                             except Exception as e:
                                 pass
@@ -126,27 +120,19 @@ class DataSplitter():
                         else:
                             try:
                                 train_data_tmp = pd.concat(
-                                    [label_df.loc[0], self.user_side.loc[
-                                        self.user_side[self.user_side["user_id"] == i].index.tolist()[0]][
-                                        self.user_sparse_features],
-                                     self.item_side.loc[
-                                         self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][
-                                         self.item_sparse_features],
-                                     self.user_side.loc[
-                                         self.user_side[self.user_side["user_id"] == i].index.tolist()[0]][
-                                         self.user_dense_features],
-                                     self.item_side.loc[
-                                         self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][
-                                         self.item_dense_features]], axis=0, ignore_index=True)
+                                    [label_df.loc[0],
+                                     self.user_side.loc[self.user_side[self.user_side["user_id"] == i].index.tolist()[0]][self.user_sparse_features],
+                                     self.item_side.loc[self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][self.item_sparse_features],
+                                     self.user_side.loc[self.user_side[self.user_side["user_id"] == i].index.tolist()[0]][self.user_dense_features],
+                                     self.item_side.loc[self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][self.item_dense_features],
+                                     self.item_side.loc[self.item_side[self.item_side["item_id"] == j].index.tolist()[0]][self.item_text_features]], axis=0, ignore_index=True)
                                 self.train_data = self.train_data.append(train_data_tmp, ignore_index=True)
                             except Exception as e:
                                 pass
                             continue
 
-            self.test_data.columns = [
-                                         "label"] + self.user_sparse_features + self.item_sparse_features + self.user_dense_features + self.item_dense_features
-            self.train_data.columns = [
-                                          "label"] + self.user_sparse_features + self.item_sparse_features + self.user_dense_features + self.item_dense_features
+            self.test_data.columns = ["label"] + self.user_sparse_features + self.item_sparse_features + self.user_dense_features + self.item_dense_features + self.item_text_features
+            self.train_data.columns = ["label"] + self.user_sparse_features + self.item_sparse_features + self.user_dense_features + self.item_dense_features + self.item_text_features
 
             # add negative sample into the train/test dataset by the using negative_strategy
 
@@ -183,73 +169,89 @@ class DataSplitter():
         return get_cat_fea_unique
 
     def _make_dataloader(self, type, config):
-
         self.data = pd.concat([self.train_data, self.test_data])
         self.dense_features = [f for f in self.data.columns.tolist() if f[0] == "d"]
         self.sparse_features = [f for f in self.data.columns.tolist() if f[0] == "s"]
         self.one_hot = [f for f in self.sparse_features if f[1] == "1"]
         self.multi_hot = [f for f in self.sparse_features if f[1] == "m"]
+        self.text = [f for f in self.data.columns.tolist() if f[0] == "t"]
 
         # sparse特征一阶表示multi-hot
         self.multi_hot_embedsize = self.unique_multi_hot_cat(config)
         self.sparse_emb_multi = nn.ModuleList([nn.Embedding(voc_size, 1) for voc_size in self.multi_hot_embedsize])
 
         if type == 'train':
-            for i, emb in enumerate(self.sparse_emb_multi):
-                for idx, row in self.train_data[self.multi_hot].iterrows():
-                    tmp = row[self.multi_hot[i]].replace("[", "")
-                    tmp = tmp.replace("]", "").split(", ")
-                    tmp = list(map(int, tmp))
-                    input = torch.LongTensor(tmp)
-                    # embed_tmp = embedding(input)
-                    embed_tmp = emb(input)
-                    embed_tmp = torch.mean(embed_tmp, 0, True).detach()
-                    if idx == 0:
-                        multi_hot_embed = embed_tmp
-                    else:
-                        multi_hot_embed = torch.cat((multi_hot_embed, embed_tmp), 0)
-                if i == 0:
-                    multi_hot_embeds_train = multi_hot_embed
-                else:
-                    multi_hot_embeds_train = torch.cat((multi_hot_embed, embed_tmp), 1)
-            print("multi_hot_embeds_train")
-            print(multi_hot_embeds_train.shape)
+            if osp.exists(config.train_dataloader_pth):
+                print("Using Cached train data loader")
+                self.train_dataset = pickle.load(open(config.train_dataloader_pth, "rb"))
+            else:
+                print("Constructing train data loader")
 
-            # get train set and test set
-            self.train_dataset = TensorDataset(torch.LongTensor(self.train_data[self.one_hot].values),
-                                               multi_hot_embeds_train,
-                                               torch.FloatTensor(self.train_data[self.dense_features].values),
-                                               torch.FloatTensor(self.train_data['label'].values))
+                for i, emb in enumerate(self.sparse_emb_multi):
+                    for idx, row in self.train_data[self.multi_hot].iterrows():
+                        tmp = row[self.multi_hot[i]].replace("[", "")
+                        tmp = tmp.replace("]", "").split(", ")
+                        tmp = list(map(int, tmp))
+                        input = torch.LongTensor(tmp)
+                        embed_tmp = emb(input)
+                        embed_tmp = torch.mean(embed_tmp, 0, True).detach()
+                        if idx == 0:
+                            multi_hot_embed = embed_tmp
+                        else:
+                            multi_hot_embed = torch.cat((multi_hot_embed, embed_tmp), 0)
+                    if i == 0:
+                        multi_hot_embeds_train = multi_hot_embed
+                    else:
+                        multi_hot_embeds_train = torch.cat((multi_hot_embed, embed_tmp), 1)
+
+                print("get text_embeds_train")
+                text_embeds_train = get_sbert_embedding(self.train_data[self.text[0]].values)
+
+                # get train set and test set
+                self.train_dataset = TensorDataset(torch.LongTensor(self.train_data[self.one_hot].values),
+                                                   multi_hot_embeds_train,
+                                                   torch.FloatTensor(self.train_data[self.dense_features].values),
+                                                   text_embeds_train,
+                                                   torch.FloatTensor(self.train_data['label'].values))
+                f3 = open(config.train_dataloader_pth, 'wb')
+                pickle.dump(self.train_dataset, f3)
 
             train_loader = DataLoader(dataset=self.train_dataset, batch_size=config.batch_size, shuffle=True)
             return train_loader
+
         elif type == 'test':
-            for i, emb in enumerate(self.sparse_emb_multi):
-                # for i in range(len(self.multi_hot)):
-                for idx, row in self.test_data[self.multi_hot].iterrows():
-                    tmp = row[self.multi_hot[i]].replace("[", "")
-                    tmp = tmp.replace("]", "").split(", ")
-                    tmp = list(map(int, tmp))
-                    input = torch.LongTensor(tmp)
-                    # embed_tmp = embedding(input)
-                    embed_tmp = emb(input)
-                    embed_tmp = torch.mean(embed_tmp, 0, True).detach()
-                    if idx == 0:
-                        multi_hot_embed = embed_tmp
+            if osp.exists(config.test_dataloader_pth):
+                print("Using Cached test data loader")
+                self.test_dataset = pickle.load(open(config.test_dataloader_pth, "rb"))
+            else:
+                print("Constructing test data loader")
+
+                for i, emb in enumerate(self.sparse_emb_multi):
+                    for idx, row in self.test_data[self.multi_hot].iterrows():
+                        tmp = row[self.multi_hot[i]].replace("[", "")
+                        tmp = tmp.replace("]", "").split(", ")
+                        tmp = list(map(int, tmp))
+                        input = torch.LongTensor(tmp)
+                        embed_tmp = emb(input)
+                        embed_tmp = torch.mean(embed_tmp, 0, True).detach()
+                        if idx == 0:
+                            multi_hot_embed = embed_tmp
+                        else:
+                            multi_hot_embed = torch.cat((multi_hot_embed, embed_tmp), 0)
+                    if i == 0:
+                        multi_hot_embeds_test = multi_hot_embed
                     else:
-                        multi_hot_embed = torch.cat((multi_hot_embed, embed_tmp), 0)
-                if i == 0:
-                    multi_hot_embeds_test = multi_hot_embed
-                else:
-                    multi_hot_embeds_test = torch.cat((multi_hot_embed, embed_tmp), 1)
+                        multi_hot_embeds_test = torch.cat((multi_hot_embed, embed_tmp), 1)
 
-            print("multi_hot_embeds_test")
-            print(multi_hot_embeds_test.shape)
+                text_embeds_test = get_sbert_embedding(self.test_data[self.text[0]].values)
 
-            self.test_dataset = TensorDataset(torch.LongTensor(self.test_data[self.one_hot].values),
-                                              multi_hot_embeds_test,
-                                              torch.FloatTensor(self.test_data[self.dense_features].values),
-                                              torch.FloatTensor(self.test_data['label'].values))
+                self.test_dataset = TensorDataset(torch.LongTensor(self.test_data[self.one_hot].values),
+                                                  multi_hot_embeds_test,
+                                                  torch.FloatTensor(self.test_data[self.dense_features].values),
+                                                  text_embeds_test,
+                                                  torch.FloatTensor(self.test_data['label'].values))
+                f4 = open(config.test_dataloader_pth, 'wb')
+                pickle.dump(self.test_dataset, f4)
 
             test_loader = DataLoader(dataset=self.test_dataset, batch_size=config.batch_size, shuffle=False)
             return test_loader

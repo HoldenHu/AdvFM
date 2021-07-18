@@ -31,13 +31,19 @@ sentences = ['Kolya (1996)Kolya (1996)Kolya (1996)a nun, while comforting a conv
     'Bachelor Louka ends up fathering a child with his girlfriend – perhaps a replacement for lost Kolya – and regains his position as a virtuoso with the philharmonic orchestra.']
 sentence_embeddings = model.encode(sentences)
 sentence_embeddings = torch.from_numpy(sentence_embeddings)
-print(type(sentence_embeddings))
-print(sentence_embeddings[2].shape)
+# print(type(sentence_embeddings))
+# print(sentence_embeddings[2].shape)
 
 #Compute cosine similarities
 cos_scores = util.cos_sim(sentence_embeddings[0], sentence_embeddings[1])
-print(cos_scores)
+# print(cos_scores)
 
 #Compute cosine similarities
 cos_scores = util.cos_sim(sentence_embeddings[0], sentence_embeddings[2])
-print(cos_scores)
+# print(cos_scores)
+
+def get_sbert_embedding(sentence):
+    model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+    sentence_embedding = model.encode(sentence)
+    sentence_embedding = torch.from_numpy(sentence_embedding)
+    return sentence_embedding

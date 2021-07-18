@@ -136,6 +136,8 @@ class Model(BaseModel):
             dnn_out = getattr(self, 'activation_' + str(i))(dnn_out)
             dnn_out = getattr(self, 'dropout_' + str(i))(dnn_out)
         dnn_out = self.dnn_linear(dnn_out)   # batch_size, 1
+
+
         out = fm_1st_part + fm_2nd_part + dnn_out   # [bs, 1]
         out = self.sigmoid(out)
         return out
