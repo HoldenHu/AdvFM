@@ -16,6 +16,8 @@ parser.add_argument("--dataset", type=str, required=False, default='ml_100k', he
 args = parser.parse_args()
 
 if __name__ == '__main__':
+    print("gpu num:",torch.cuda.device_count())
+
     dataset = args.dataset
     model = args.model
     # Each module (.py) has a model definition class and a configuration class
@@ -32,7 +34,7 @@ if __name__ == '__main__':
     test_loader = data_split._make_dataloader("test", config)
 
     sparse_fea_unique = data_split.unique_one_hot_cat
-    n_dense_fea = data_split.n_densefeature
+    n_dense_fea = data_split.n_dense_feature
     multi_hot_embedsize = data_split.unique_multi_hot_cat(config)
 
     model = cur_module.Model(sparse_fea_unique, multi_hot_embedsize, n_dense_fea).to(config.device)
