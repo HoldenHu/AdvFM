@@ -65,7 +65,7 @@ class Model(BaseModel):
         # 2nd order - variable interactions
         # dense feature resize
         if self.num_fea_size != 0:
-            self.fm_2nd_order_dense = nn.Linear(self.num_fea_size, emb_size)
+            self.fm_2nd_order_dense = nn.ModuleList([nn.Linear(1, emb_size) for i in range(dense_cate)])
         # text feature resize
         self.fm_2nd_order_text = nn.Linear(384, emb_size)
         # one hot feature resize
@@ -105,12 +105,13 @@ class Model(BaseModel):
         fm_2nd_order_res = [emb(X_sparse_one[:, i].unsqueeze(1)) for i, emb in enumerate(self.fm_2nd_order_one_hot)]
         fm_2nd_concat_one = torch.cat(fm_2nd_order_res, dim=1)      # batch_size, num_sparse_one, emb_size
         # multi hot feature resize
-        fm_2nd_order_res = [emb(X_sparse_multi[:, i].unsqueeze(1)) for i, emb in enumerate(self.fm_2nd_multi_hot)]
-        fm_2nd_concat_multi = torch.cat(fm_2nd_order_res, dim=1).unsqueeze(1)   # batch size, num_sparse_multi, embed size
+        fm_2nd_order_res = [emb(X_sparse_multi[:, i].unsqueeze(1)).unsqueeze(1) for i, emb in enumerate(self.fm_2nd_multi_hot)]
+        fm_2nd_concat_multi = torch.cat(fm_2nd_order_res, dim=1)   # batch size, num_sparse_multi, embed size
         fm_2nd_concat = torch.cat((fm_2nd_concat_one, fm_2nd_concat_multi), dim=1)     # batch size, num_sparse, embed size
         # dense feature resize
         if X_dense is not None:
-            fm_2nd_concat_dense = self.fm_2nd_order_dense(X_dense).unsqueeze(1)
+            fm_2nd_order_res = [emb(X_dense[:, i].unsqueeze(1)).unsqueeze(1) for i, emb in enumerate(self.fm_2nd_order_dense)]
+            fm_2nd_concat_dense = torch.cat(fm_2nd_order_res, dim=1)  # batch_size, num_sparse_one, emb_size
             fm_2nd_concat = torch.cat((fm_2nd_concat_dense, fm_2nd_concat), dim=1)  # batch size, num_sparse, embed size
         # text feature resize
         if X_text is not None:
