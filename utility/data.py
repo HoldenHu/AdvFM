@@ -201,7 +201,7 @@ class DataSplitter():
                                                    text_embeds_train,
                                                    torch.FloatTensor(self.train_data['label'].values))
 
-            train_loader = DataLoader(dataset=self.train_dataset, batch_size=config.batch_size, shuffle=True)
+            train_loader = DataLoader(dataset=self.train_dataset, batch_size=config.batch_size, shuffle=True, drop_last=True)
 
             return train_loader
 
@@ -229,7 +229,7 @@ class DataSplitter():
                                                   text_embeds_test,
                                                   torch.FloatTensor(self.test_data['label'].values))
 
-            test_loader = DataLoader(dataset=self.test_dataset, batch_size=config.batch_size, shuffle=False)
+            test_loader = DataLoader(dataset=self.test_dataset, batch_size=config.batch_size, shuffle=False, drop_last=True)
 
             return test_loader
 
