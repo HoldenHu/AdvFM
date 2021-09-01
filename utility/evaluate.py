@@ -79,7 +79,7 @@ def train_model(config, train_loader, test_loader, model):
             loss.backward()
             optimizer.step()
             train_loss_sum += loss.cpu().item()
-            if (step + 1) % 500 == 0 or (step + 1) == len(train_loader):
+            if (step + 1) % 2000 == 0 or (step + 1) == len(train_loader):
                 print("Epoch {:04d} | Step {:04d} / {} | Loss {:.4f} | Time {:.4f}".format(
                     epoch + 1, step + 1, len(train_loader), train_loss_sum / (step + 1), time.time() - start_time))
         scheduler.step()
