@@ -41,7 +41,7 @@ class Config(object):
 
 
 class Model(BaseModel):
-    def __init__(self, one_hot_cate, multi_hot_cate, dense_cate, emb_size=8, hidden_dims=[256, 128], num_classes=1, dropout=[0.2, 0.2]):
+    def __init__(self, one_hot_cate, multi_hot_cate, dense_cate, emb_size=10, hidden_dims=[256, 128], num_classes=1, dropout=[0.2, 0.2]):
         """
         @params
             one_hot_cate: num of fields in each one hot feature
