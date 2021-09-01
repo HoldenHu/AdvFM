@@ -7,9 +7,11 @@ import numpy as np
 
 
 ml_100k_label = {1: 0, 2: 0, 3: 0, 4: 1, 5: 1}
+yelp_label = {1: 0, 2: 0, 3: 0, 4: 1, 5: 1}
 
 dataset_label = {
-    'ml_100k': ml_100k_label
+    'ml_100k': ml_100k_label,
+    'yelp':yelp_label
 
 }
 
