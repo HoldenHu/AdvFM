@@ -3,6 +3,9 @@
 This is the PyTorch implementation for AdvFM proposed in the paper [Automatic Feature Fairness in Recommendation via Adversaries](), In Annual International ACM SIGIR Conference on Research and Development in Information Retrieval in the Asia Pacific Region, 2023. 
 The AdvFM model can be found in the `model` folder.
 
+Contributors: [Yiming Cao](https://github.com/caoymg), [Hengchang Hu](https://holdenhu.github.io/)
+
+
 ### Preprocess
 
 - **First Step**. Download the raw data from the orginal source, e.g., ml_100k (https://grouplens.org/datasets/movielens/100k/)
