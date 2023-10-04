@@ -9,7 +9,6 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 class Config(object):
-    """配置参数"""
 
     def __init__(self, dataset, data_type, lr, batch_size, test_batch_size, ):
         self.model = 'AdvFM'
