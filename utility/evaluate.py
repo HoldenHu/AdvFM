@@ -1,286 +1,113 @@
-# Author: Cao Ymg
+# Author: Cao Yiming
 # Date: 10 Jul, 2021
 # Description: train, eval
 # -*- coding: utf-8 -*-
-from utility.utils import FGSM,PGD
-import os
+from functools import reduce
+import os.path as osp
 import time
 from torch import nn
 from torch import optim
-from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 import numpy as np
 import torch
-# 1e:00.0 sle-3
-# 3 sle-1
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
 
-def point_evaluate(model, test_loader):
-    '''
-    evalue the model based on point-wise metrics
-    '''
-    label = []
-    prediction = []
-    for row in test_loader:
-        pass
-    # calculate the score = cal(label,prediction)
-    # return MAE, RMSE, R2, AUC, RCE
 
-def rank_evaluate(model, test_loader, top_k):
-    '''
-    evalue the model based on pair-wise ranking metrics
-    '''
-    HR, NDCG = [], [],[]
-    for row in test_loader:
-        pass
-    return np.mean(HR), np.mean(NDCG)
+def test_model(config, model, test_loader):
 
-def evaluate_model_ml(model, test_loader):
+    if osp.exists(config.save_path):
+        model.load_state_dict(torch.load(config.save_path))
+
     model.eval()
     with torch.no_grad():
-        valid_labels, valid_preds = [], []
-        for step, x in tqdm(enumerate(test_loader)):
-            one_hot_fea, multi_hot_fea, num_fea, text, label = x[0], x[1], x[2], x[3], x[4]
-            pic = None
+        test_labels, test_preds = [], []
+        for step, x in enumerate(test_loader):
+            one_hot_fea, label, tem, hum = x[0], x[1], x[2], x[3]
             if torch.cuda.is_available():
-                one_hot_fea, multi_hot_fea, num_fea, text, label = one_hot_fea.cuda(), multi_hot_fea.cuda(), num_fea.cuda(), text.cuda(), label.cuda()
-            logits = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-            logits = logits.view(-1).data.cpu().numpy().tolist()
-            valid_preds.extend(logits)
-            valid_labels.extend(label.cpu().numpy().tolist())
-        cur_auc = roc_auc_score(valid_labels, valid_preds)
-        print("cur_auc:", cur_auc)
-        return cur_auc
+                one_hot_fea, label = one_hot_fea.cuda(), label.cuda()
+            train_flg = 0
+            out = model(one_hot_fea, label, None, None, None, None, train_flg, None)
+            loss_fct = nn.BCELoss()
+            test_loss = loss_fct(out.squeeze(), label.squeeze())
+            logits = out.view(-1).data.cpu().numpy().tolist()
+            test_preds.extend(logits)
+            test_labels.extend(label.cpu().numpy().tolist())
+        cur_auc = roc_auc_score(test_labels, test_preds)
+        return cur_auc, test_loss
+    
+def test(config, model, all_test_loader, a_test_loader, d_test_loader, top1_test_loader, top2_test_loader, top3_test_loader, top4_test_loader, top5_test_loader, top6_test_loader):
+    cur_auc, test_loss = test_model(config, model, all_test_loader)
+    adv_cur_auc, _ = test_model(config, model, a_test_loader)
+    dis_cur_auc, _ = test_model(config, model, d_test_loader)
+    top1_auc, _ = test_model(config, model, top1_test_loader)
+    top2_auc, _ = test_model(config, model, top2_test_loader)
+    top3_auc, _ = test_model(config, model, top3_test_loader)
+    top4_auc, _ = test_model(config, model, top4_test_loader)
+    top5_auc, _ = test_model(config, model, top5_test_loader)
+    top6_auc, _ = test_model(config, model, top6_test_loader)
+    print("Test loss {:.4f} | auc {:.4f} | adv_cur_auc {:.4f} | dis_cur_auc {:.4f} | top1 {:.4f} | top2 {:.4f} | top3 {:.4f} | top4 {:.4f} | top5 {:.4f}  | top6 {:.4f} ".format(test_loss, cur_auc, adv_cur_auc, dis_cur_auc, top1_auc, top2_auc, top3_auc, top4_auc, top5_auc, top6_auc))
 
-def train_model_ml(config, train_loader, test_loader, model,adversary):
+
+def train_model(data_type, config, train_loader, vali_loader, model):
+
+    if osp.exists(config.save_path):
+        model.load_state_dict(torch.load(config.save_path))
+        best_auc = test_model(config, model, vali_loader)
+        print("load history best params with validation AUC ", best_auc)
+    else:
+        best_auc = 0.0
+
     if torch.cuda.is_available():
         model.cuda()
-        adversary.cuda()
-
+    
     loss_fct = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
+    optimizer = optim.Adam([{"params":model.parameters()}], lr=config.learning_rate, weight_decay=config.weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config.train_batch_size, gamma=0.8)
-
     best_auc = 0.0
+    early_stoping = 0
+    
     for epoch in range(config.Epochs):
+        
         model.train()
         train_loss_sum = 0.0
         start_time = time.time()
+        
         for step, x in enumerate(train_loader):
             optimizer.zero_grad()
-            one_hot_fea, multi_hot_fea, num_fea, text, label = x[0], x[1], x[2], x[3], x[4]
-            pic = None
+            one_hot_fea, label, freq, humidity= x[0], x[1], x[2], x[3]
             if torch.cuda.is_available():
-                one_hot_fea, multi_hot_fea, num_fea, text, label, epoch = one_hot_fea.cuda(), multi_hot_fea.cuda(), num_fea.cuda(), text.cuda(), label.cuda(), epoch.cuda()
-            pred = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-            # print(pred.size())  # torch.Size([3, 1])
-            pred = pred.view(-1)
-            loss = loss_fct(pred, label)
+                one_hot_fea, label, freq, humidity = one_hot_fea.cuda(),label.cuda(), freq.cuda(), humidity.cuda()
+            train_flg = 1
+            _, loss = model(one_hot_fea, label, freq, data_type, loss_fct, epoch, train_flg, humidity)
             loss.backward()
-
-            # reach convergence 1700
-            if epoch > 2:
-                weight_dict = adversary(emb_name_lst = ["fm_1st_order_dense","fm_1st_order_one_hot.0", "fm_1st_order_one_hot.1", "fm_1st_order_one_hot.2","fm_1st_order_multi_hot", "fm_1st_order_text",
-                                                        "fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot","fm_2nd_order_text"])
-
-                # """
-                # 1. PGD attack
-                # """
-                # pgd = PGD(model)
-                # K = 3
-                # pgd.backup_grad(emb_name_lst=["fm_1st_order_multi_hot", "fm_2nd_order_multi_hot"])
-                # for t in range(K):
-                #     pgd.attack(emb_name_lst=["fm_1st_order_multi_hot", "fm_2nd_order_multi_hot"],is_first_attack=(t==0)) # 在embedding上添加对抗扰动, first attack时备份param.data
-                #     if t != K-1:
-                #         model.zero_grad()
-                #     else:
-                #         pgd.restore_grad(emb_name_lst=["fm_1st_order_multi_hot", "fm_2nd_order_multi_hot"])
-                #     pred_adv = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-                #     pred_adv = pred_adv.view(-1)
-                #     loss_adv = loss_fct(pred_adv, label)
-                #     # Back propagation, accumulate the grad of adv training on the basis of normal grad
-                #     loss_adv.backward()
-                # # Recovery of embedding parameter
-                # pgd.restore(emb_name_lst=["fm_1st_order_multi_hot", "fm_2nd_order_multi_hot"])
-
-                # """
-                # 2. weighted FGSM attack
-                # """
-                # fgsm = FGSM(model)
-                # fgsm.backup_grad(emb_name_lst=["fm_1st_order_dense","fm_1st_order_one_hot.0", "fm_1st_order_one_hot.1", "fm_1st_order_one_hot.2","fm_1st_order_multi_hot","fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot", "fm_1st_order_text","fm_2nd_order_text"])
-                # fgsm.attack(emb_name_lst=["fm_1st_order_dense","fm_1st_order_one_hot.0", "fm_1st_order_one_hot.1", "fm_1st_order_one_hot.2","fm_1st_order_multi_hot","fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot", "fm_1st_order_text","fm_2nd_order_text"])
-                # pred_adv = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-                # pred_adv = pred_adv.view(-1)
-                # loss_adv = loss_fct(pred_adv, label)
-                # # Back propagation, accumulate the grad of adv training on the basis of normal grad
-                # loss_adv.backward()
-                # fgsm.restore(emb_name_lst=["fm_1st_order_dense","fm_1st_order_one_hot.0", "fm_1st_order_one_hot.1", "fm_1st_order_one_hot.2","fm_1st_order_multi_hot","fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot", "fm_1st_order_text","fm_2nd_order_text"])
-                # fgsm.weighted_attack(emb_name_lst=["fm_1st_order_dense","fm_1st_order_one_hot.0", "fm_1st_order_one_hot.1", "fm_1st_order_one_hot.2","fm_1st_order_multi_hot","fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot", "fm_1st_order_text","fm_2nd_order_text"], epoch_num = epoch)
-                # fgsm.restore_grad(emb_name_lst=["fm_1st_order_dense","fm_1st_order_one_hot.0", "fm_1st_order_one_hot.1", "fm_1st_order_one_hot.2","fm_1st_order_multi_hot","fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot", "fm_1st_order_text","fm_2nd_order_text"])
-                # pred_adv = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-                # pred_adv = pred_adv.view(-1)
-                # loss_adv = loss_fct(pred_adv, label)
-                # loss_adv.backward()
-                # # Recovery of embedding parameter
-                # fgsm.restore(emb_name_lst=["fm_1st_order_dense","fm_1st_order_one_hot.0", "fm_1st_order_one_hot.1", "fm_1st_order_one_hot.2","fm_1st_order_multi_hot","fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot", "fm_1st_order_text","fm_2nd_order_text"])
-
-                # """
-                # 3. FGSM attack
-                # """
-                # fgsm = FGSM(model)
-                # fgsm.attack(emb_name_lst=["fm_1st_order_multi_hot"])
-                # pred_adv = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-                # pred_adv = pred_adv.view(-1)
-                # loss_adv = loss_fct(pred_adv, label)
-                # # Back propagation, accumulate the grad of adv training on the basis of normal grad
-                # loss_adv.backward()
-                # # Recovery of embedding parameter
-                # fgsm.restore(emb_name_lst=["fm_1st_order_multi_hot"])
-                """
-                4. weight 1 FGSM
-                """
-                fgsm = FGSM(model)
-                fgsm.attack_auto_weight(weight_dict, emb_name_lst=["fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot","fm_2nd_order_text"])
-                pred_adv = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-                pred_adv = pred_adv.view(-1)
-                loss_adv = loss_fct(pred_adv, label)
-                # Back propagation, accumulate the grad of adv training on the basis of normal grad
-                loss_adv.backward()
-                # Recovery of embedding parameter
-                fgsm.restore(emb_name_lst=["fm_2nd_order_dense", "fm_2nd_order_one_hot.0", "fm_2nd_order_one_hot.1", "fm_2nd_order_one_hot.2", "fm_2nd_order_multi_hot","fm_2nd_order_text"])
             optimizer.step()
-            train_loss_sum += loss.cpu().item()
-            if (step + 1) % 2000 == 0 or (step + 1) == len(train_loader):
-                print("Epoch {:04d} | Step {:04d} / {} | Loss {:.4f} | Time {:.4f}".format(
-                    epoch + 1, step + 1, len(train_loader), train_loss_sum / (step + 1), time.time() - start_time))
+            train_loss_sum += loss.item()
         scheduler.step()
-        cur_auc = evaluate_model_ml(model, test_loader)
-        if cur_auc > best_auc:
-            best_auc = cur_auc
-            torch.save(model.state_dict(), config.save_path)
 
-
-def evaluate_model_yelp(model, test_loader):
-    model.eval()
-    with torch.no_grad():
+        model.eval()     
         valid_labels, valid_preds = [], []
-        for step, x in tqdm(enumerate(test_loader)):
-            one_hot_fea, multi_hot_fea, num_fea, label = x[0], x[1], x[2], x[3]
-            text = None
-            pic = None
+        for step, x in enumerate(vali_loader):
+            optimizer.zero_grad()
+            one_hot_fea, label, freq, humidity= x[0], x[1], x[2], x[3]
             if torch.cuda.is_available():
-                one_hot_fea, multi_hot_fea, num_fea, label = one_hot_fea.cuda(), multi_hot_fea.cuda(), num_fea.cuda(), label.cuda()
-            logits = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-            logits = logits.view(-1).data.cpu().numpy().tolist()
+                one_hot_fea, label, freq, humidity = one_hot_fea.cuda(),label.cuda(), freq.cuda(), humidity.cuda()
+            train_flg = 0
+            out = model(one_hot_fea, label, None, None, None, None, train_flg, None)
+            valid_loss = loss_fct(out.squeeze(), label.squeeze())
+            logits = out.view(-1).data.cpu().numpy().tolist()
             valid_preds.extend(logits)
             valid_labels.extend(label.cpu().numpy().tolist())
         cur_auc = roc_auc_score(valid_labels, valid_preds)
-        print("cur_auc:", cur_auc)
-        return cur_auc
+        print("Epoch {:04d} | avg adversarial loss {:.4f} | validation auc {:.4f} | Time {:.4f}".format(epoch + 1, train_loss_sum/step, cur_auc, time.time() - start_time))
 
-
-def train_model_yelp(config, train_loader, test_loader, model):
-    if torch.cuda.is_available():
-        model.cuda()
-
-    loss_fct = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config.train_batch_size, gamma=0.8)
-
-    best_auc = 0.0
-    for epoch in range(config.Epochs):
-        model.train()
-        train_loss_sum = 0.0
-        start_time = time.time()
-        for step, x in enumerate(train_loader):
-            one_hot_fea, multi_hot_fea, num_fea, label = x[0], x[1], x[2], x[3]
-            text = None
-            pic = None
-            if torch.cuda.is_available():
-                one_hot_fea, multi_hot_fea, num_fea, label = one_hot_fea.cuda(), multi_hot_fea.cuda(), num_fea.cuda(), label.cuda()
-            pred = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-            # print(pred.size())  # torch.Size([3, 1])
-            pred = pred.view(-1)
-            loss = loss_fct(pred, label)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            train_loss_sum += loss.cpu().item()
-            if (step + 1) % 2000 == 0 or (step + 1) == len(train_loader):
-                print("Epoch {:04d} | Step {:04d} / {} | Loss {:.4f} | Time {:.4f}".format(
-                    epoch + 1, step + 1, len(train_loader), train_loss_sum / (step + 1), time.time() - start_time))
-        scheduler.step()
-        cur_auc = evaluate_model_yelp(model, test_loader)
         if cur_auc > best_auc:
             best_auc = cur_auc
             torch.save(model.state_dict(), config.save_path)
+        else:
+            early_stoping += 1
+            if early_stoping == 50:
+                print("early stopping at epoch ", epoch+1)
+                break
+        
+    
+    return model
 
-
-def evaluate_model_pin(model, test_loader):
-    model.eval()
-    with torch.no_grad():
-        valid_labels, valid_preds = [], []
-        for step, x in tqdm(enumerate(test_loader)):
-            one_hot_fea, pic, label = x[0].cpu(), x[1].cpu(), x[2].cpu()
-            if torch.cuda.is_available():
-                one_hot_fea, pic, label = one_hot_fea.cuda(), pic.cuda(), label.cuda()
-            text = None
-            multi_hot_fea = None
-            num_fea = None            
-            logits = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-            logits = logits.view(-1).data.cpu().numpy().tolist()
-            valid_preds.extend(logits)
-            valid_labels.extend(label.cpu().numpy().tolist())
-        cur_auc = roc_auc_score(valid_labels, valid_preds)
-        print("cur_auc:", cur_auc)
-        return cur_auc
-
-
-def train_model_pin(config, train_loader, test_loader, model):
-    if torch.cuda.is_available():
-        model.cuda()
-
-    loss_fct = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=config.train_batch_size, gamma=0.8)
-
-    best_auc = 0.0
-    for epoch in range(config.Epochs):
-        model.train()
-        train_loss_sum = 0.0
-        start_time = time.time()
-        for step, x in enumerate(train_loader):
-            one_hot_fea, pic, label = x[0].cpu(), x[1].cpu(), x[2].cpu()
-            text = None
-            multi_hot_fea = None
-            num_fea = None
-            if torch.cuda.is_available():
-                one_hot_fea, pic, label = one_hot_fea.cuda(), pic.cuda(), label.cuda()
-            pred = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-            pred = pred.view(-1)
-            loss = loss_fct(pred, label)
-
-            # reach convergence
-            if epoch > 1700:
-                fgsm = FGSM(model)
-                fgsm.attack(emb_name="dnn_pic")
-                pred_adv = model(one_hot_fea, multi_hot_fea, num_fea, text, pic)
-                pred_adv = pred_adv.view(-1)
-                loss_adv = loss_fct(pred_adv, label)
-                 # Back propagation, accumulate the grad of adv training on the basis of normal grad
-                loss_adv.backward()
-                # Recovery of embedding parameter
-                fgsm.restore(emb_name="dnn_pic")
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            train_loss_sum += loss.cpu().item()
-            if (step + 1) % 2000 == 0 or (step + 1) == len(train_loader):
-                print("Epoch {:04d} | Step {:04d} / {} | Loss {:.4f} | Time {:.4f}".format(
-                    epoch + 1, step + 1, len(train_loader), train_loss_sum / (step + 1), time.time() - start_time))
-        scheduler.step()
-        cur_auc = evaluate_model_pin(model, test_loader)
-        if cur_auc > best_auc:
-            best_auc = cur_auc
-            torch.save(model.state_dict(), config.save_path)
