@@ -1,4 +1,4 @@
-# Author: Cao Ymg
+# Author: Cao Yiming
 # Date: 11 Jul, 2021
 # Description: Process
 # -*- coding: utf-8 -*-
@@ -10,44 +10,40 @@ import os
 from importlib import import_module
 import argparse
 from utility.data import DataSplitter
-from utility.evaluate import train_model_ml, train_model_pin, train_model_yelp
+from utility.evaluate import train_model, test
 
-parser = argparse.ArgumentParser(description='Chinese Text Classification')
-parser.add_argument('--model', type=str, required=False, default='FM', help='FM,DeepFM')
-parser.add_argument("--dataset", type=str, required=False, default='ml_100k', help="ml_100k,yelp,ml_20m,pinterest")
+parser = argparse.ArgumentParser(description='AAFM-master')
+parser.add_argument('--model', type=str, required=False, default='AdvFM', help='AAFM,E-AAFM,FM, AdvFM')
+parser.add_argument("--data_path", type=str, required=False, default='/Data/', help="data path")
+parser.add_argument("--dataset", type=str, required=False, default='ml_100k', help="ml_100k,yelp,pinterest")
+parser.add_argument("--data_type", type=str, required=False, default='item_side', help="item_side,user_side")
+parser.add_argument("--lr", type=float, required=False, default='0.005', help="learning rate")
+parser.add_argument("--batch_size", type=int, required=False, default='512', help="batch size")
+parser.add_argument("--test_batch_size", type=int, required=False, default='64', help="batch size for test")
 args = parser.parse_args()
-# 1e:00.0
-# 3 sle-1
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"
+
+np.random.seed(1)
+torch.manual_seed(1)
+torch.cuda.manual_seed_all(1)
 
 if __name__ == '__main__':
-    print("start!")
     dataset = args.dataset
+    data_type = args.data_type
+    lr = args.lr
+    batch_size = args.batch_size
+    test_batch_size = args.test_batch_size
+    
     model = args.model
-    # Each module (.py) has a model definition class and a configuration class
     cur_module = import_module('model.' + model)
-    config = cur_module.Config(dataset)
-
-    np.random.seed(1)
-    torch.manual_seed(1)
-    torch.cuda.manual_seed_all(1)
+    config = cur_module.Config(dataset, data_type, lr, batch_size, test_batch_size)
 
     data_split = DataSplitter(config, dataset)
 
-    train_loader = data_split._make_dataloader("train", config, dataset)
-    test_loader = data_split._make_dataloader("test", config, dataset)
+    train_loader, vali_loader = data_split._make_dataloader("train", config, dataset)
+    all_test_loader, a_test_loader, d_test_loader, top1_test_loader, top2_test_loader, top3_test_loader, top4_test_loader, top5_test_loader, top6_test_loader = data_split._make_dataloader("test", config, dataset)
+    sparse_fea_unique = data_split.unique_one_hot_cat    
+    model = cur_module.Model(sparse_fea_unique).to(config.device)
 
-    sparse_fea_unique = data_split.unique_one_hot_cat
-    n_dense_fea = data_split.n_dense_feature
-    multi_hot_embedsize = data_split.unique_multi_hot_cat(config)
+    train_model(data_type, config, train_loader, vali_loader, model)
 
-    model = cur_module.Model(sparse_fea_unique, multi_hot_embedsize, n_dense_fea).to(config.device)
-    adversary = cur_module.Adversary_FGSM(model)
-
-    if dataset[0] == 'm':
-        train_model_ml(config, train_loader, test_loader, model, adversary)
-    if dataset[0] == 'y':
-        train_model_yelp(config, train_loader, test_loader, model)
-    if dataset[0] == 'p':
-        train_model_pin(config, train_loader, test_loader, model)
-
+    test(config, model, all_test_loader, a_test_loader, d_test_loader, top1_test_loader, top2_test_loader, top3_test_loader, top4_test_loader, top5_test_loader, top6_test_loader)
