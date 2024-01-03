@@ -12,7 +12,7 @@ Contributors: [Yiming Cao](https://github.com/caoymg), [Hengchang Hu](https://ho
 - Download the raw data from the orginal source, e.g., ml_100k (https://grouplens.org/datasets/movielens/100k/)
 - User feature enriched recommendation datasets include movie dataset MovieLens-100K (user gender, occupation, and zip code), and image dataset Pinterest (user preference categories). Item feature enriched recommendation datasets include movie dataset MovieLens-100K (movie category, and release timestamp), and business dataset Yelp (business city, star). 
 - We filtered out the user with more than 20 interactions in Yelp, and randomly selected 6,000 users to construct our Pinterest dataset. 
-- We convert all continuous feature values into categorical values (e.g., by binning user age into appropriate brackets), and consider the user and item IDs as additional features. Frequency and combination variety is calculated for each feature.
+- We convert all continuous feature values into categorical values, and consider the user and item IDs as additional features. Frequency and combination variety is calculated for each feature.
   - Frequency indicates the occurrence rate of the value concerning its feature domain.
   - Combination variety indicates the number of diverse samples where the value co-occurs with other features in combination. [One naive calculation method: frequency of  feature value v / number of other feature values that  co-occurs with v. A more accurate method should consider the frequency of other feature values with which v  co-occurs.]
 - For the train–test data split, we employ the standard leave-one-out.
