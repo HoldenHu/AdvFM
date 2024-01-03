@@ -21,7 +21,8 @@ Contributors: [Yiming Cao](https://github.com/caoymg), [Hengchang Hu](https://ho
 
 ### How to Run
 
-- **Third Step**. Use `process.py` to preprocess the raw data.
+Use `process.py` to run the model.
+
 ```python
  python3 process.py --model [model_name] --dataset [dataset_name]
 ```
